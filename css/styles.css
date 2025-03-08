@@ -772,3 +772,36 @@ textarea:invalid {
         margin-top: 8px;
     }
 }
+.cart-sort {
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cart-sort select {
+    padding: 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.cart-group-header {
+    background-color: var(--background-light);
+    color: var(--primary-brown);
+    padding: 6px 10px;
+    font-weight: bold;
+    font-size: 0.9em;
+    border-bottom: 1px solid #ddd;
+    margin-top: 5px;
+}
+
+.cart-item-country {
+    color: var(--secondary-brown);
+    font-style: italic;
+    font-size: 0.9em;
+}
+
+/* Pour mettre en évidence les pays lors du tri par pays */
+.cart-sort[value="country"] .cart-item-country {
+    font-weight: bold;
+}

@@ -4,6 +4,7 @@
  */
 
 // Initialiser le module de ventes
+sortBy: 'none',
 LeDiplomate.ventes = {
     // Variables du module
     scanner: null,
@@ -360,60 +361,118 @@ LeDiplomate.ventes = {
      * Met à jour l'affichage du panier
      */
     updateCartDisplay: function() {
-        const cartContainer = document.getElementById('cart-items');
-        const totalElement = document.getElementById('cart-total-amount');
-        
-        if (!cartContainer || !totalElement) {
-            console.error('Éléments du panier non trouvés dans le DOM');
-            return;
-        }
-        
-        if (this.cart.length === 0) {
-            cartContainer.innerHTML = '<div class="cart-empty">Le panier est vide</div>';
-            totalElement.textContent = '0.00';
-            return;
-        }
-        
-        // Calculer le total
-        let total = 0;
-        
-        // Afficher les articles
-        cartContainer.innerHTML = '';
-        this.cart.forEach((item, index) => {
-            const product = LeDiplomate.dataManager.products.getById(item.productId);
-            if (!product) {
-                console.error('Produit non trouvé pour l\'ID:', item.productId);
-                return;
-            }
-            
-            const subtotal = item.price * item.quantity;
-            total += subtotal;
-            
-            const cartItem = document.createElement('div');
-            cartItem.className = 'cart-item';
-            cartItem.innerHTML = `
-                <div class="cart-item-info">
-                    <strong>${product.brand} ${product.name}</strong>
-                    <div>${item.quantity} x ${LeDiplomate.formatPrice(item.price)}€ = ${LeDiplomate.formatPrice(subtotal)}€</div>
-                </div>
-                <div class="cart-item-actions">
-                    <button class="btn-decrease" title="Diminuer">-</button>
-                    <button class="btn-increase" title="Augmenter">+</button>
-                    <button class="btn-remove" title="Supprimer">×</button>
-                </div>
-            `;
-            
-            // Ajouter les événements
-            cartItem.querySelector('.btn-decrease').addEventListener('click', () => this.decreaseQuantity(index));
-            cartItem.querySelector('.btn-increase').addEventListener('click', () => this.increaseQuantity(index));
-            cartItem.querySelector('.btn-remove').addEventListener('click', () => this.removeFromCart(index));
-            
-            cartContainer.appendChild(cartItem);
+    const cartContainer = document.getElementById('cart-items');
+    const totalElement = document.getElementById('cart-total-amount');
+    const sortSelect = document.getElementById('cart-sort');
+    
+    if (!cartContainer || !totalElement) {
+        console.error('Éléments du panier non trouvés dans le DOM');
+        return;
+    }
+    
+    // Initialiser le sélecteur de tri s'il n'est pas déjà configuré
+    if (sortSelect && !sortSelect.hasEventListener) {
+        sortSelect.addEventListener('change', () => {
+            this.sortBy = sortSelect.value;
+            this.updateCartDisplay();
         });
+        sortSelect.value = this.sortBy;
+        sortSelect.hasEventListener = true;
+    }
+    
+    if (this.cart.length === 0) {
+        cartContainer.innerHTML = '<div class="cart-empty">Le panier est vide</div>';
+        totalElement.textContent = '0.00';
+        return;
+    }
+    
+    // Préparer les données des articles avec toutes les informations
+    let cartItems = this.cart.map((item, index) => {
+        const product = LeDiplomate.dataManager.products.getById(item.productId);
+        if (!product) {
+            console.error('Produit non trouvé pour l\'ID:', item.productId);
+            return null;
+        }
         
-        // Mettre à jour le total
-        totalElement.textContent = LeDiplomate.formatPrice(total);
-    },
+        return {
+            index: index,
+            product: product,
+            quantity: item.quantity,
+            price: item.price,
+            subtotal: item.price * item.quantity,
+            // Ajouter d'autres détails qui pourraient être utiles pour le tri
+            country: product.country || '',
+            brand: product.brand || ''
+        };
+    }).filter(item => item !== null);
+    
+    // Trier les articles selon l'option sélectionnée
+    if (this.sortBy !== 'none') {
+        cartItems.sort((a, b) => {
+            switch (this.sortBy) {
+                case 'country':
+                    return a.country.localeCompare(b.country);
+                case 'brand':
+                    return a.brand.localeCompare(b.brand);
+                case 'price':
+                    return a.price - b.price;
+                case 'price-desc':
+                    return b.price - a.price;
+                default:
+                    return 0;
+            }
+        });
+    }
+    
+    // Calculer le total
+    let total = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
+    
+    // Afficher les articles
+    cartContainer.innerHTML = '';
+    
+    // Option: ajouter des en-têtes de groupe si trié par pays ou marque
+    let currentGroup = '';
+    
+    cartItems.forEach(item => {
+        // Ajouter un en-tête de groupe si nécessaire
+        if (this.sortBy === 'country' || this.sortBy === 'brand') {
+            const groupValue = this.sortBy === 'country' ? item.country : item.brand;
+            
+            if (groupValue !== currentGroup) {
+                currentGroup = groupValue;
+                
+                const groupHeader = document.createElement('div');
+                groupHeader.className = 'cart-group-header';
+                groupHeader.textContent = currentGroup || 'Non spécifié';
+                cartContainer.appendChild(groupHeader);
+            }
+        }
+        
+        const cartItem = document.createElement('div');
+        cartItem.className = 'cart-item';
+        cartItem.innerHTML = `
+            <div class="cart-item-info">
+                <strong>${item.product.brand} ${item.product.name}</strong>
+                <div>${item.country ? `<span class="cart-item-country">${item.country}</span> • ` : ''}${item.quantity} x ${LeDiplomate.formatPrice(item.price)}€ = ${LeDiplomate.formatPrice(item.subtotal)}€</div>
+            </div>
+            <div class="cart-item-actions">
+                <button class="btn-decrease" title="Diminuer">-</button>
+                <button class="btn-increase" title="Augmenter">+</button>
+                <button class="btn-remove" title="Supprimer">×</button>
+            </div>
+        `;
+        
+        // Ajouter les événements
+        cartItem.querySelector('.btn-decrease').addEventListener('click', () => this.decreaseQuantity(item.index));
+        cartItem.querySelector('.btn-increase').addEventListener('click', () => this.increaseQuantity(item.index));
+        cartItem.querySelector('.btn-remove').addEventListener('click', () => this.removeFromCart(item.index));
+        
+        cartContainer.appendChild(cartItem);
+    });
+    
+    // Mettre à jour le total
+    totalElement.textContent = LeDiplomate.formatPrice(total);
+},
     
     /**
      * Augmente la quantité d'un article du panier
