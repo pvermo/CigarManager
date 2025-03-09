@@ -22,8 +22,7 @@
     <nav>
         <ul>
             <li><a href="#" data-module="ventes" class="active">Ventes</a></li>
-            <li><a href="#" data-module="stock">Stock</a></li>
-            <li><a href="#" data-module="produits">Catalogue</a></li>
+            <li><a href="#" data-module="produits">Produits & Stock</a></li>
             <li><a href="#" data-module="fournisseurs">Fournisseurs</a></li>
             <li><a href="#" data-module="statistiques">Statistiques</a></li>
             <li><a href="#" data-module="etiquettes">Étiquettes</a></li>
@@ -96,67 +95,33 @@
             
             <div class="sales-history">
                 <h3>Historique des ventes récentes</h3>
+                    <div class="sales-history-actions">
+                        <button id="reset-sales" class="btn danger">Effacer l'historique</button>
+                    </div>
                 <div class="sales-list" id="sales-history-list"></div>
             </div>
-        </div>
-    </template>
-    
-    <!-- Template Stock -->
-    <template id="tpl-stock">
-        <div class="module-container">
-            <h2>Gestion du Stock</h2>
-            
-            <div class="actions-bar">
-                <div class="search-bar">
-                    <input type="text" id="stock-search" placeholder="Rechercher un produit...">
-                    <button id="stock-search-btn" class="btn primary">Rechercher</button>
-                </div>
-                <div class="action-buttons">
-                    <button id="add-stock-item" class="btn secondary">Ajouter Produit</button>
-                    <button id="import-stock" class="btn secondary">Importer Excel</button>
-                    <button id="export-stock" class="btn secondary">Exporter Excel</button>
-                </div>
-            </div>
-            
-            <div class="stock-table-container">
-                <table id="stock-table" class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Marque</th>
-                            <th>Nom</th>
-                            <th>Origine</th>
-                            <th>Quantité</th>
-                            <th>Prix</th>
-                            <th>Fournisseur</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="stock-items">
-                        <!-- Les éléments de stock seront ajoutés ici dynamiquement -->
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="pagination" id="stock-pagination"></div>
         </div>
     </template>
     
     <!-- Autres templates (produits, fournisseurs, statistiques, étiquettes) -->
     
     <!-- Template Produits -->
+    <!-- Template Produits Unifié -->
     <template id="tpl-produits">
         <div class="module-container">
-            <h2>Catalogue Produits</h2>
+            <h2>Gestion des Produits & Stock</h2>
             
             <div class="actions-bar">
                 <div class="search-bar">
-                    <input type="text" id="product-catalog-search" placeholder="Rechercher un produit...">
+                    <input type="text" id="product-catalog-search" placeholder="Rechercher par marque, nom, pays...">
                     <button id="product-search-btn" class="btn primary">Rechercher</button>
                 </div>
                 <div class="action-buttons">
                     <button id="add-product-item" class="btn secondary">Ajouter Produit</button>
                     <button id="import-products" class="btn secondary">Importer Excel</button>
                     <button id="export-products" class="btn secondary">Exporter Excel</button>
+                    <button id="reset-stock" class="btn danger">Réinitialiser Stock</button>
+                    <button id="reset-products" class="btn danger">Réinitialiser Catalogue</button>
                 </div>
             </div>
             
@@ -172,7 +137,9 @@
                             <th>Sous-cape</th>
                             <th>Tripe</th>
                             <th>Force</th>
+                            <th>Quantité</th>
                             <th>Prix</th>
+                            <th>Fournisseur</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -345,34 +312,43 @@
         <h3>Ajouter/Modifier Produit</h3>
         <form id="product-form">
             <input type="hidden" id="product-id">
+            
+            <!-- Informations produit -->
             <div class="form-group">
                 <label for="product-brand">Marque:</label>
                 <input type="text" id="product-brand" required>
             </div>
+            
             <div class="form-group">
                 <label for="product-name">Nom:</label>
                 <input type="text" id="product-name" required>
             </div>
+            
             <div class="form-group">
                 <label for="product-country">Pays d'origine:</label>
                 <input type="text" id="product-country">
             </div>
+            
             <div class="form-group">
                 <label for="product-vitole">Vitole:</label>
                 <input type="text" id="product-vitole">
             </div>
+            
             <div class="form-group">
                 <label for="product-wrapper">Cape:</label>
                 <input type="text" id="product-wrapper">
             </div>
+            
             <div class="form-group">
                 <label for="product-binder">Sous-cape:</label>
                 <input type="text" id="product-binder">
             </div>
+            
             <div class="form-group">
                 <label for="product-filler">Tripe:</label>
                 <input type="text" id="product-filler">
             </div>
+            
             <div class="form-group">
                 <label for="product-strength">Force/Intensité:</label>
                 <select id="product-strength">
@@ -384,6 +360,12 @@
                     <option value="Très Forte">Très Forte</option>
                 </select>
             </div>
+            
+            <!-- Champs de stock (seront ajoutés dynamiquement) -->
+            <div id="product-stock-fields">
+                <!-- Les champs de stock seront ajoutés ici par JavaScript -->
+            </div>
+            
             <div class="form-actions">
                 <button type="submit" class="btn primary">Enregistrer</button>
                 <button type="button" class="btn secondary close-modal">Annuler</button>
@@ -452,16 +434,182 @@
             </div>
         </form>
     </template>
-    
+    <template id="tpl-modal-confirm-reset">
+        <h3>Confirmation de réinitialisation</h3>
+        <div class="confirm-message">
+            <p id="reset-confirmation-message">Êtes-vous sûr de vouloir réinitialiser ces données ? Cette action est irréversible.</p>
+        </div>
+        <div class="form-actions">
+            <button id="confirm-reset-btn" type="button" class="btn danger">Confirmer la réinitialisation</button>
+            <button type="button" class="btn secondary close-modal">Annuler</button>
+        </div>
+    </template>
     <!-- JavaScript -->
     <script src="js/app.js"></script>
+    <script type="text/javascript">
+        /**
+ * Correctif pour les méthodes de réinitialisation du dataManager - Le Diplomate
+ * Ajouter ce script juste après l'inclusion de js/data.js dans index.html
+ */
+
+document.addEventListener('DOMContentLoaded', function() {
+  // S'assurer que LeDiplomate et son dataManager sont disponibles
+  if (!LeDiplomate || !LeDiplomate.dataManager) {
+    console.error('LeDiplomate ou son dataManager n\'est pas disponible');
+    return;
+  }
+  
+  console.log('Correction des méthodes de réinitialisation du dataManager');
+  
+  // Correction de la méthode resetStock
+  LeDiplomate.dataManager.resetStock = function() {
+    try {
+      console.log('Réinitialisation du stock en cours...');
+      // Réinitialiser le stock
+      this.data.stock = [];
+      this.saveAllData();
+      console.log('Stock réinitialisé avec succès');
+      return true;
+    } catch (error) {
+      console.error('Erreur lors de la réinitialisation du stock:', error);
+      return false;
+    }
+  };
+  
+  // Correction de la méthode resetProducts
+  LeDiplomate.dataManager.resetProducts = function() {
+    try {
+      console.log('Vérification de la réinitialisation du catalogue...');
+      // Vérifier d'abord si certains produits sont référencés en stock
+      const productsInStock = this.data.stock.length > 0;
+      
+      if (productsInStock) {
+        console.warn('Impossible de réinitialiser le catalogue : des produits sont encore en stock');
+        return {
+          success: false,
+          message: 'Impossible de réinitialiser le catalogue : des produits sont encore en stock. Veuillez d\'abord réinitialiser le stock.'
+        };
+      }
+      
+      // Réinitialiser le catalogue de produits
+      this.data.products = [];
+      this.saveAllData();
+      console.log('Catalogue de produits réinitialisé avec succès');
+      
+      return {
+        success: true,
+        message: 'Catalogue de produits réinitialisé avec succès'
+      };
+    } catch (error) {
+      console.error('Erreur lors de la réinitialisation du catalogue:', error);
+      return {
+        success: false,
+        message: 'Erreur lors de la réinitialisation du catalogue: ' + error.message
+      };
+    }
+  };
+  
+  // Correction de la méthode resetSales
+  LeDiplomate.dataManager.resetSales = function() {
+    try {
+      console.log('Réinitialisation de l\'historique des ventes en cours...');
+      // Réinitialiser l'historique des ventes
+      this.data.sales = [];
+      this.saveAllData();
+      console.log('Historique des ventes réinitialisé avec succès');
+      return true;
+    } catch (error) {
+      console.error('Erreur lors de la réinitialisation de l\'historique des ventes:', error);
+      return false;
+    }
+  };
+  
+  console.log('Méthodes de réinitialisation corrigées avec succès');
+});
+    </script>
     <script src="js/data.js"></script>
     <script src="js/ventes.js"></script>
-    <script src="js/stock.js"></script>
     <script src="js/produits.js"></script>
     <script src="js/fournisseurs.js"></script>
     <script src="js/statistiques.js"></script>
     <script src="js/etiquettes.js"></script>
+    <!-- Ajouter après les autres scripts mais avant l'initialisation -->
+    <script src="js/init.js"></script>
+    <script type="text/javascript">/**
+ * Script d'initialisation pour corriger les problèmes du module produits
+ * Ajouter ce script juste avant la fermeture de la balise </body> dans index.html
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Application des correctifs pour le module produits...');
+    
+    // Méthode améliorée pour réinitialiser le stock (toutes les quantités à zéro)
+    LeDiplomate.dataManager.resetStock = function() {
+        try {
+            console.log('Réinitialisation du stock en cours...');
+            
+            // Mettre toutes les quantités à zéro mais conserver les prix et fournisseurs
+            this.data.stock.forEach(item => {
+                item.quantity = 0;
+            });
+            
+            this.saveAllData();
+            console.log('Stock réinitialisé avec succès');
+            return true;
+        } catch (error) {
+            console.error('Erreur lors de la réinitialisation du stock:', error);
+            return false;
+        }
+    };
+    
+    // Méthode améliorée pour réinitialiser le catalogue (supprimer produits sans stock)
+    LeDiplomate.dataManager.resetProducts = function() {
+        try {
+            console.log('Vérification de la réinitialisation du catalogue...');
+            
+            // Récupérer les produits qui sont actuellement en stock (quantité > 0)
+            const productsInStock = [];
+            this.data.stock.forEach(item => {
+                if (item.quantity > 0) {
+                    productsInStock.push(item.productId);
+                }
+            });
+            
+            if (productsInStock.length > 0) {
+                console.warn(`${productsInStock.length} produits sont encore en stock`);
+                
+                // Supprimer seulement les produits qui ne sont pas en stock
+                this.data.products = this.data.products.filter(product => 
+                    productsInStock.includes(product.id)
+                );
+                
+                this.saveAllData();
+                
+                return {
+                    success: true,
+                    message: `Catalogue partiellement réinitialisé (${productsInStock.length} produits en stock conservés)`
+                };
+            }
+            
+            // Si aucun produit n'est en stock, réinitialiser complètement
+            this.data.products = [];
+            this.saveAllData();
+            console.log('Catalogue de produits entièrement réinitialisé');
+            
+            return {
+                success: true,
+                message: 'Catalogue de produits réinitialisé avec succès'
+            };
+        } catch (error) {
+            console.error('Erreur lors de la réinitialisation du catalogue:', error);
+            return {
+                success: false,
+                message: 'Erreur lors de la réinitialisation du catalogue: ' + error.message
+            };
+        }
+    };
+    
+    console.log('Correctifs appliqués avec succès');
+});</script>
     <script>
       // Initialisation de l'application après le chargement de tous les scripts
       document.addEventListener('DOMContentLoaded', function() {
@@ -474,6 +622,154 @@
         // Charger le module par défaut
         LeDiplomate.loadModule(LeDiplomate.state.currentModule);
       });
+    </script>
+    <script type="text/javascript">
+        /**
+ * Correctif pour les boutons de réinitialisation - Le Diplomate
+ * Ajouter ce script à la fin du fichier index.html, juste avant la fermeture de la balise body
+ */
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Fonction pour initialiser les écouteurs d'événements une fois que les modules sont chargés
+  function initResetButtons() {
+    console.log('Initialisation des boutons de réinitialisation');
+    
+    // Bouton de réinitialisation du stock
+    const resetStockBtn = document.getElementById('reset-stock');
+    if (resetStockBtn) {
+      console.log('Bouton de réinitialisation du stock trouvé');
+      // Supprimer les anciens écouteurs d'événements
+      const newResetStockBtn = resetStockBtn.cloneNode(true);
+      resetStockBtn.parentNode.replaceChild(newResetStockBtn, resetStockBtn);
+      
+      // Ajouter le nouvel écouteur d'événements
+      newResetStockBtn.addEventListener('click', function() {
+        console.log('Clic sur le bouton de réinitialisation du stock');
+        showResetConfirmation('stock', 'Êtes-vous sûr de vouloir réinitialiser tout le stock ? Cette action est irréversible et supprimera tous les articles du stock.');
+      });
+    } else {
+      console.warn('Bouton de réinitialisation du stock non trouvé');
+    }
+    
+    // Bouton de réinitialisation des ventes
+    const resetSalesBtn = document.getElementById('reset-sales');
+    if (resetSalesBtn) {
+      console.log('Bouton de réinitialisation des ventes trouvé');
+      // Supprimer les anciens écouteurs d'événements
+      const newResetSalesBtn = resetSalesBtn.cloneNode(true);
+      resetSalesBtn.parentNode.replaceChild(newResetSalesBtn, resetSalesBtn);
+      
+      // Ajouter le nouvel écouteur d'événements
+      newResetSalesBtn.addEventListener('click', function() {
+        console.log('Clic sur le bouton de réinitialisation des ventes');
+        showResetConfirmation('sales', 'Êtes-vous sûr de vouloir effacer tout l\'historique des ventes ? Cette action est irréversible et supprimera toutes les ventes enregistrées. Les stocks ne seront pas affectés.');
+      });
+    } else {
+      console.warn('Bouton de réinitialisation des ventes non trouvé');
+    }
+    
+    // Bouton de réinitialisation du catalogue
+    const resetProductsBtn = document.getElementById('reset-products');
+    if (resetProductsBtn) {
+      console.log('Bouton de réinitialisation du catalogue trouvé');
+      // Supprimer les anciens écouteurs d'événements
+      const newResetProductsBtn = resetProductsBtn.cloneNode(true);
+      resetProductsBtn.parentNode.replaceChild(newResetProductsBtn, resetProductsBtn);
+      
+      // Ajouter le nouvel écouteur d'événements
+      newResetProductsBtn.addEventListener('click', function() {
+        console.log('Clic sur le bouton de réinitialisation du catalogue');
+        showResetConfirmation('products', 'Êtes-vous sûr de vouloir réinitialiser tout le catalogue de produits ? Cette action est irréversible et supprimera tous les produits du catalogue. Note : les produits présents en stock ne peuvent pas être supprimés.');
+      });
+    } else {
+      console.warn('Bouton de réinitialisation du catalogue non trouvé');
+    }
+  }
+  
+  // Fonction pour afficher la modale de confirmation
+  function showResetConfirmation(type, message) {
+    console.log(`Affichage de la confirmation de réinitialisation pour: ${type}`);
+    
+    // Afficher la modale de confirmation
+    LeDiplomate.modals.show('tpl-modal-confirm-reset');
+    
+    // Mettre à jour le message
+    const messageElement = document.getElementById('reset-confirmation-message');
+    if (messageElement) {
+      messageElement.textContent = message;
+    }
+    
+    // Ajouter l'événement de confirmation
+    const confirmBtn = document.getElementById('confirm-reset-btn');
+    if (confirmBtn) {
+      // Supprimer les anciens événements
+      const newConfirmBtn = confirmBtn.cloneNode(true);
+      confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+      
+      // Ajouter le nouvel événement
+      newConfirmBtn.addEventListener('click', function() {
+        console.log(`Confirmation de réinitialisation pour: ${type}`);
+        
+        let success = false;
+        let successMessage = '';
+        
+        // Exécuter l'action de réinitialisation appropriée
+        switch (type) {
+          case 'stock':
+            success = LeDiplomate.dataManager.resetStock();
+            successMessage = 'Stock réinitialisé avec succès';
+            if (success && LeDiplomate.stock && LeDiplomate.stock.loadStockData) {
+              LeDiplomate.stock.loadStockData();
+            }
+            break;
+          
+          case 'sales':
+            success = LeDiplomate.dataManager.resetSales();
+            successMessage = 'Historique des ventes effacé avec succès';
+            if (success && LeDiplomate.ventes && LeDiplomate.ventes.loadRecentSales) {
+              LeDiplomate.ventes.loadRecentSales();
+            }
+            break;
+          
+          case 'products':
+            const result = LeDiplomate.dataManager.resetProducts();
+            success = result.success;
+            successMessage = result.message || 'Catalogue de produits réinitialisé avec succès';
+            if (success && LeDiplomate.produits && LeDiplomate.produits.loadProductsData) {
+              LeDiplomate.produits.loadProductsData();
+            }
+            break;
+        }
+        
+        // Fermer la modale
+        LeDiplomate.modals.hide();
+        
+        // Afficher un message de confirmation
+        if (success) {
+          LeDiplomate.notifications.show(successMessage, 'success');
+        } else {
+          LeDiplomate.notifications.show('Erreur lors de la réinitialisation', 'error');
+        }
+      });
+    }
+  }
+
+  // Initialiser les boutons lors du chargement initial
+  initResetButtons();
+  
+  // Réinitialiser les boutons chaque fois qu'un module est chargé
+  const originalLoadModule = LeDiplomate.loadModule;
+  
+  if (originalLoadModule) {
+    LeDiplomate.loadModule = function(moduleName) {
+      // Appeler la fonction originale
+      originalLoadModule.call(LeDiplomate, moduleName);
+      
+      // Une fois que le module est chargé, initialiser les boutons de réinitialisation
+      setTimeout(initResetButtons, 100);
+    };
+  }
+});
     </script>
 </body>
 </html>

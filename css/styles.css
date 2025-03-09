@@ -805,3 +805,51 @@ textarea:invalid {
 .cart-sort[value="country"] .cart-item-country {
     font-weight: bold;
 }
+/* Styles pour l'affichage du total du stock */
+.stock-total-value {
+    text-align: right;
+    margin-top: 15px;
+    padding: 10px 15px;
+    background-color: var(--background-light);
+    border-radius: 5px;
+    font-weight: bold;
+    font-size: 16px;
+    color: var(--primary-brown);
+    border-left: 4px solid var(--primary-brown);
+}
+
+/* Animation pour mettre en évidence le changement de valeur */
+@keyframes highlight {
+    0% { background-color: var(--background-light); }
+    50% { background-color: var(--highlight-color); }
+    100% { background-color: var(--background-light); }
+}
+
+.stock-total-value.updated {
+    animation: highlight 1.5s ease;
+}
+/* Style pour les boutons de réinitialisation */
+.btn.danger {
+    background-color: var(--error-color);
+    color: white;
+}
+
+.btn.danger:hover {
+    background-color: #b71c1c;
+}
+
+/* Style pour les actions dans l'historique des ventes */
+.sales-history-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 10px;
+}
+
+/* Style pour le message de confirmation */
+.confirm-message {
+    margin: 20px 0;
+    padding: 15px;
+    background-color: #FFEBEE;
+    border-left: 4px solid var(--error-color);
+    color: #D32F2F;
+}

@@ -1,15 +1,15 @@
 /**
- * Module Ventes - Le Diplomate (Version corrigée)
+ * Module Ventes - Le Diplomate (Adapté pour le nouveau modèle unifié de produits)
  * Gère les fonctionnalités de vente et le scanner QR Code
  */
 
 // Initialiser le module de ventes
-sortBy: 'none',
 LeDiplomate.ventes = {
     // Variables du module
     scanner: null,
     videoStream: null,
     cart: [],
+    sortBy: 'none',
     
     /**
      * Initialise le module
@@ -60,14 +60,10 @@ LeDiplomate.ventes = {
             console.warn('Bouton "Rechercher" non trouvé dans le DOM');
         }
         
-        // Panier - CORRECTION: Vérification de l'existence et liaison explicite
+        // Panier
         const completeSaleBtn = document.getElementById('complete-sale');
         if (completeSaleBtn) {
-            console.log('Bouton "Valider la vente" trouvé, ajout du gestionnaire d\'événements');
-            completeSaleBtn.addEventListener('click', () => {
-                console.log('Bouton "Valider la vente" cliqué');
-                this.showCompleteSaleModal();
-            });
+            completeSaleBtn.addEventListener('click', this.showCompleteSaleModal.bind(this));
         } else {
             console.error('Bouton "Valider la vente" non trouvé dans le DOM');
         }
@@ -79,19 +75,22 @@ LeDiplomate.ventes = {
             console.warn('Bouton "Vider le panier" non trouvé dans le DOM');
         }
         
-        // Formulaire de finalisation de vente - CORRECTION: Ajout du délai pour s'assurer que tout est initialisé
-        setTimeout(() => {
-            document.querySelector('body').addEventListener('submit', (e) => {
-                console.log('Formulaire soumis:', e.target.id);
-                if (e.target.id === 'complete-sale-form') {
-                    e.preventDefault();
-                    console.log('Finalisation de la vente...');
-                    this.completeSale();
-                }
+        // Tri du panier
+        const cartSortSelect = document.getElementById('cart-sort');
+        if (cartSortSelect) {
+            cartSortSelect.addEventListener('change', () => {
+                this.sortBy = cartSortSelect.value;
+                this.updateCartDisplay();
             });
-            
-            console.log('Écouteur d\'événements de soumission de formulaire attaché au body');
-        }, 500);
+        }
+        
+        // Formulaire de finalisation de vente
+        document.addEventListener('submit', (e) => {
+            if (e.target.id === 'complete-sale-form') {
+                e.preventDefault();
+                this.completeSale();
+            }
+        });
         
         // Écouter les actions sur l'historique des ventes
         const historyList = document.getElementById('sales-history-list');
@@ -110,6 +109,54 @@ LeDiplomate.ventes = {
             });
         } else {
             console.warn('Conteneur d\'historique des ventes non trouvé dans le DOM');
+        }
+        
+        // Bouton de réinitialisation de l'historique des ventes
+        const resetSalesBtn = document.getElementById('reset-sales');
+        if (resetSalesBtn) {
+            resetSalesBtn.addEventListener('click', this.showResetConfirmation.bind(this));
+        } else {
+            console.warn('Bouton "Effacer l\'historique" non trouvé dans le DOM');
+        }
+    },
+    
+    /**
+     * Affiche la confirmation de réinitialisation
+     */
+    showResetConfirmation: function() {
+        // Personnaliser le message de confirmation
+        const message = "Êtes-vous sûr de vouloir effacer tout l'historique des ventes ? Cette action est irréversible et supprimera toutes les ventes enregistrées. Les stocks ne seront pas affectés.";
+        
+        // Afficher la modale de confirmation
+        LeDiplomate.modals.show('tpl-modal-confirm-reset');
+        
+        // Mettre à jour le message
+        const messageElement = document.getElementById('reset-confirmation-message');
+        if (messageElement) {
+            messageElement.textContent = message;
+        }
+        
+        // Ajouter l'événement de confirmation
+        const confirmBtn = document.getElementById('confirm-reset-btn');
+        if (confirmBtn) {
+            // Supprimer les anciens événements
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+            
+            // Ajouter le nouvel événement
+            newConfirmBtn.addEventListener('click', () => {
+                // Réinitialiser l'historique des ventes
+                const result = LeDiplomate.dataManager.resetSales();
+                
+                // Fermer la modale
+                LeDiplomate.modals.hide();
+                
+                // Afficher un message de confirmation
+                LeDiplomate.notifications.show('Historique des ventes effacé avec succès', 'success');
+                
+                // Recharger l'historique des ventes
+                this.loadRecentSales();
+            });
         }
     },
     
@@ -223,64 +270,64 @@ LeDiplomate.ventes = {
      * @param {string} data - Données du QR Code
      */
     processQRCode: function(data) {
-    try {
-        console.log('Données QR reçues:', data); // Log pour débugger
-        
-        // Le format attendu est "Marque: X|Cigare: Y|Pays: Z|Prix: W"
-        const parts = data.split('|');
-        let productInfo = {};
-        
-        parts.forEach(part => {
-            const [key, value] = part.split(':').map(s => s.trim());
-            if (key && value) {
-                if (key === 'Marque') productInfo.brand = value;
-                if (key === 'Cigare') productInfo.name = value;
-                if (key === 'Pays') productInfo.country = value;
-                if (key === 'Prix') productInfo.price = value.replace('€', '');
-            }
-        });
-        
-        console.log('Information produit extraite:', productInfo); // Log pour débugger
-        
-        // Rechercher le produit correspondant
-        if (productInfo.brand && productInfo.name) {
-            // Recherche plus précise: utiliser une correspondance exacte si possible
-            const allProducts = LeDiplomate.dataManager.products.getAll();
-            let matchedProduct = allProducts.find(p => 
-                p.brand.toLowerCase() === productInfo.brand.toLowerCase() && 
-                p.name.toLowerCase() === productInfo.name.toLowerCase()
-            );
+        try {
+            console.log('Données QR reçues:', data);
             
-            // Si pas de correspondance exacte, utiliser la recherche standard
-            if (!matchedProduct) {
-                const products = LeDiplomate.dataManager.products.search(productInfo.brand + ' ' + productInfo.name);
-                if (products.length > 0) {
-                    matchedProduct = products[0];
+            // Le format attendu est "Marque: X|Cigare: Y|Pays: Z|Prix: W"
+            const parts = data.split('|');
+            let productInfo = {};
+            
+            parts.forEach(part => {
+                const [key, value] = part.split(':').map(s => s.trim());
+                if (key && value) {
+                    if (key === 'Marque') productInfo.brand = value;
+                    if (key === 'Cigare') productInfo.name = value;
+                    if (key === 'Pays') productInfo.country = value;
+                    if (key === 'Prix') productInfo.price = value.replace('€', '');
                 }
-            }
+            });
             
-            if (matchedProduct) {
-                // Vérifier si le produit est en stock
-                const stockItem = LeDiplomate.dataManager.stock.getByProductId(matchedProduct.id);
+            console.log('Information produit extraite:', productInfo);
+            
+            // Rechercher le produit correspondant
+            if (productInfo.brand && productInfo.name) {
+                // Recherche plus précise: utiliser une correspondance exacte si possible
+                const allProducts = LeDiplomate.dataManager.products.getAll();
+                let matchedProduct = allProducts.find(p => 
+                    p.brand.toLowerCase() === productInfo.brand.toLowerCase() && 
+                    p.name.toLowerCase() === productInfo.name.toLowerCase()
+                );
                 
-                if (stockItem && stockItem.quantity > 0) {
-                    // Ajouter au panier
-                    this.addToCart(matchedProduct.id, stockItem.price);
-                    LeDiplomate.notifications.show(`${matchedProduct.brand} ${matchedProduct.name} ajouté au panier`, 'success');
+                // Si pas de correspondance exacte, utiliser la recherche standard
+                if (!matchedProduct) {
+                    const products = LeDiplomate.dataManager.products.search(productInfo.brand + ' ' + productInfo.name);
+                    if (products.length > 0) {
+                        matchedProduct = products[0];
+                    }
+                }
+                
+                if (matchedProduct) {
+                    // Vérifier si le produit est en stock en utilisant le modèle unifié
+                    const stockItem = LeDiplomate.dataManager.stock.getByProductId(matchedProduct.id);
+                    
+                    if (stockItem && stockItem.quantity > 0) {
+                        // Ajouter au panier
+                        this.addToCart(matchedProduct.id, stockItem.price);
+                        LeDiplomate.notifications.show(`${matchedProduct.brand} ${matchedProduct.name} ajouté au panier`, 'success');
+                    } else {
+                        LeDiplomate.notifications.show(`${matchedProduct.brand} ${matchedProduct.name} est en rupture de stock`, 'warning');
+                    }
                 } else {
-                    LeDiplomate.notifications.show(`${matchedProduct.brand} ${matchedProduct.name} est en rupture de stock`, 'warning');
+                    LeDiplomate.notifications.show(`Produit non trouvé: ${productInfo.brand} ${productInfo.name}`, 'error');
                 }
             } else {
-                LeDiplomate.notifications.show(`Produit non trouvé: ${productInfo.brand} ${productInfo.name}`, 'error');
+                LeDiplomate.notifications.show('QR Code non reconnu: informations incomplètes', 'error');
             }
-        } else {
-            LeDiplomate.notifications.show('QR Code non reconnu: informations incomplètes', 'error');
+        } catch (error) {
+            console.error('Erreur lors du traitement du QR Code:', error);
+            LeDiplomate.notifications.show('Format de QR Code non reconnu: ' + error.message, 'error');
         }
-    } catch (error) {
-        console.error('Erreur lors du traitement du QR Code:', error);
-        LeDiplomate.notifications.show('Format de QR Code non reconnu: ' + error.message, 'error');
-    }
-},
+    },
     
     /**
      * Recherche des produits dans le catalogue
@@ -299,7 +346,7 @@ LeDiplomate.ventes = {
             return;
         }
         
-        // Rechercher les produits
+        // Utiliser le nouveau système de recherche unifié
         const products = LeDiplomate.dataManager.products.search(query);
         
         if (products.length === 0) {
@@ -307,7 +354,7 @@ LeDiplomate.ventes = {
             return;
         }
         
-        // Afficher les résultats
+        // Afficher les résultats en tenant compte du nouveau modèle unifié
         resultsContainer.innerHTML = '';
         products.forEach(product => {
             // Vérifier si le produit est en stock
@@ -317,7 +364,7 @@ LeDiplomate.ventes = {
                 const item = document.createElement('div');
                 item.className = 'search-item';
                 item.innerHTML = `
-                    <span>${product.brand} ${product.name} (${product.country})</span>
+                    <span>${product.brand} ${product.name} (${product.country || '--'})</span>
                     <small>Prix: ${LeDiplomate.formatPrice(stockItem.price)}€ | Stock: ${stockItem.quantity}</small>
                 `;
                 
@@ -361,118 +408,113 @@ LeDiplomate.ventes = {
      * Met à jour l'affichage du panier
      */
     updateCartDisplay: function() {
-    const cartContainer = document.getElementById('cart-items');
-    const totalElement = document.getElementById('cart-total-amount');
-    const sortSelect = document.getElementById('cart-sort');
-    
-    if (!cartContainer || !totalElement) {
-        console.error('Éléments du panier non trouvés dans le DOM');
-        return;
-    }
-    
-    // Initialiser le sélecteur de tri s'il n'est pas déjà configuré
-    if (sortSelect && !sortSelect.hasEventListener) {
-        sortSelect.addEventListener('change', () => {
-            this.sortBy = sortSelect.value;
-            this.updateCartDisplay();
-        });
-        sortSelect.value = this.sortBy;
-        sortSelect.hasEventListener = true;
-    }
-    
-    if (this.cart.length === 0) {
-        cartContainer.innerHTML = '<div class="cart-empty">Le panier est vide</div>';
-        totalElement.textContent = '0.00';
-        return;
-    }
-    
-    // Préparer les données des articles avec toutes les informations
-    let cartItems = this.cart.map((item, index) => {
-        const product = LeDiplomate.dataManager.products.getById(item.productId);
-        if (!product) {
-            console.error('Produit non trouvé pour l\'ID:', item.productId);
-            return null;
+        const cartContainer = document.getElementById('cart-items');
+        const totalElement = document.getElementById('cart-total-amount');
+        const sortSelect = document.getElementById('cart-sort');
+        
+        if (!cartContainer || !totalElement) {
+            console.error('Éléments du panier non trouvés dans le DOM');
+            return;
         }
         
-        return {
-            index: index,
-            product: product,
-            quantity: item.quantity,
-            price: item.price,
-            subtotal: item.price * item.quantity,
-            // Ajouter d'autres détails qui pourraient être utiles pour le tri
-            country: product.country || '',
-            brand: product.brand || ''
-        };
-    }).filter(item => item !== null);
-    
-    // Trier les articles selon l'option sélectionnée
-    if (this.sortBy !== 'none') {
-        cartItems.sort((a, b) => {
-            switch (this.sortBy) {
-                case 'country':
-                    return a.country.localeCompare(b.country);
-                case 'brand':
-                    return a.brand.localeCompare(b.brand);
-                case 'price':
-                    return a.price - b.price;
-                case 'price-desc':
-                    return b.price - a.price;
-                default:
-                    return 0;
+        // S'assurer que le tri est initialisé
+        if (sortSelect && !this.sortInitialized) {
+            sortSelect.value = this.sortBy;
+            this.sortInitialized = true;
+        }
+        
+        if (this.cart.length === 0) {
+            cartContainer.innerHTML = '<div class="cart-empty">Le panier est vide</div>';
+            totalElement.textContent = '0.00';
+            return;
+        }
+        
+        // Préparer les données des articles avec toutes les informations
+        let cartItems = this.cart.map((item, index) => {
+            const product = LeDiplomate.dataManager.products.getById(item.productId);
+            if (!product) {
+                console.error('Produit non trouvé pour l\'ID:', item.productId);
+                return null;
             }
-        });
-    }
-    
-    // Calculer le total
-    let total = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
-    
-    // Afficher les articles
-    cartContainer.innerHTML = '';
-    
-    // Option: ajouter des en-têtes de groupe si trié par pays ou marque
-    let currentGroup = '';
-    
-    cartItems.forEach(item => {
-        // Ajouter un en-tête de groupe si nécessaire
-        if (this.sortBy === 'country' || this.sortBy === 'brand') {
-            const groupValue = this.sortBy === 'country' ? item.country : item.brand;
             
-            if (groupValue !== currentGroup) {
-                currentGroup = groupValue;
-                
-                const groupHeader = document.createElement('div');
-                groupHeader.className = 'cart-group-header';
-                groupHeader.textContent = currentGroup || 'Non spécifié';
-                cartContainer.appendChild(groupHeader);
-            }
+            return {
+                index: index,
+                product: product,
+                quantity: item.quantity,
+                price: item.price,
+                subtotal: item.price * item.quantity,
+                country: product.country || '',
+                brand: product.brand || ''
+            };
+        }).filter(item => item !== null);
+        
+        // Trier les articles selon l'option sélectionnée
+        if (this.sortBy !== 'none') {
+            cartItems.sort((a, b) => {
+                switch (this.sortBy) {
+                    case 'country':
+                        return a.country.localeCompare(b.country);
+                    case 'brand':
+                        return a.brand.localeCompare(b.brand);
+                    case 'price':
+                        return a.price - b.price;
+                    case 'price-desc':
+                        return b.price - a.price;
+                    default:
+                        return 0;
+                }
+            });
         }
         
-        const cartItem = document.createElement('div');
-        cartItem.className = 'cart-item';
-        cartItem.innerHTML = `
-            <div class="cart-item-info">
-                <strong>${item.product.brand} ${item.product.name}</strong>
-                <div>${item.country ? `<span class="cart-item-country">${item.country}</span> • ` : ''}${item.quantity} x ${LeDiplomate.formatPrice(item.price)}€ = ${LeDiplomate.formatPrice(item.subtotal)}€</div>
-            </div>
-            <div class="cart-item-actions">
-                <button class="btn-decrease" title="Diminuer">-</button>
-                <button class="btn-increase" title="Augmenter">+</button>
-                <button class="btn-remove" title="Supprimer">×</button>
-            </div>
-        `;
+        // Calculer le total
+        let total = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
         
-        // Ajouter les événements
-        cartItem.querySelector('.btn-decrease').addEventListener('click', () => this.decreaseQuantity(item.index));
-        cartItem.querySelector('.btn-increase').addEventListener('click', () => this.increaseQuantity(item.index));
-        cartItem.querySelector('.btn-remove').addEventListener('click', () => this.removeFromCart(item.index));
+        // Afficher les articles
+        cartContainer.innerHTML = '';
         
-        cartContainer.appendChild(cartItem);
-    });
-    
-    // Mettre à jour le total
-    totalElement.textContent = LeDiplomate.formatPrice(total);
-},
+        // Option: ajouter des en-têtes de groupe si trié par pays ou marque
+        let currentGroup = '';
+        
+        cartItems.forEach(item => {
+            // Ajouter un en-tête de groupe si nécessaire
+            if (this.sortBy === 'country' || this.sortBy === 'brand') {
+                const groupValue = this.sortBy === 'country' ? item.country : item.brand;
+                
+                if (groupValue !== currentGroup) {
+                    currentGroup = groupValue;
+                    
+                    const groupHeader = document.createElement('div');
+                    groupHeader.className = 'cart-group-header';
+                    groupHeader.textContent = currentGroup || 'Non spécifié';
+                    cartContainer.appendChild(groupHeader);
+                }
+            }
+            
+            const cartItem = document.createElement('div');
+            cartItem.className = 'cart-item';
+            cartItem.innerHTML = `
+                <div class="cart-item-info">
+                    <strong>${item.product.brand} ${item.product.name}</strong>
+                    <div>${item.country ? `<span class="cart-item-country">${item.country}</span> • ` : ''}${item.quantity} x ${LeDiplomate.formatPrice(item.price)}€ = ${LeDiplomate.formatPrice(item.subtotal)}€</div>
+                </div>
+                <div class="cart-item-actions">
+                    <button class="btn-decrease" title="Diminuer">-</button>
+                    <button class="btn-increase" title="Augmenter">+</button>
+                    <button class="btn-remove" title="Supprimer">×</button>
+                </div>
+            `;
+            
+            // Ajouter les événements
+            cartItem.querySelector('.btn-decrease').addEventListener('click', () => this.decreaseQuantity(item.index));
+            cartItem.querySelector('.btn-increase').addEventListener('click', () => this.increaseQuantity(item.index));
+            cartItem.querySelector('.btn-remove').addEventListener('click', () => this.removeFromCart(item.index));
+            
+            cartContainer.appendChild(cartItem);
+        });
+        
+        // Mettre à jour le total
+        totalElement.textContent = LeDiplomate.formatPrice(total);
+    },
     
     /**
      * Augmente la quantité d'un article du panier
@@ -482,7 +524,7 @@ LeDiplomate.ventes = {
         if (index >= 0 && index < this.cart.length) {
             const item = this.cart[index];
             
-            // Vérifier le stock disponible
+            // Vérifier le stock disponible avec le nouveau modèle unifié
             const stockItem = LeDiplomate.dataManager.stock.getByProductId(item.productId);
             
             if (stockItem && item.quantity < stockItem.quantity) {
@@ -542,131 +584,69 @@ LeDiplomate.ventes = {
     /**
      * Affiche la modale de finalisation de vente
      */
-    /**
-/**
- * Version corrigée de la méthode showCompleteSaleModal
- * Cette version s'assure que les éléments de la modale sont accessibles
- */
-showCompleteSaleModal: function() {
-    console.log('Tentative d\'affichage de la modale de finalisation de vente');
-    
-    if (this.cart.length === 0) {
-        console.log('Le panier est vide, impossible de finaliser la vente');
-        LeDiplomate.notifications.show('Le panier est vide', 'warning');
-        return;
-    }
-    
-    // Calculer le total et préparer les items
-    let total = 0;
-    const summaryItems = [];
-    
-    console.log('Contenu du panier:', JSON.stringify(this.cart));
-    
-    this.cart.forEach(item => {
-        const product = LeDiplomate.dataManager.products.getById(item.productId);
-        if (!product) {
-            console.error('Produit non trouvé pour l\'ID:', item.productId);
-            return;
-        }
-        
-        const subtotal = item.price * item.quantity;
-        console.log(`Calcul pour ${product.brand} ${product.name}: ${item.quantity} x ${item.price}€ = ${subtotal}€`);
-        total += subtotal;
-        
-        summaryItems.push(`
-            <div class="sale-summary-item">
-                <span>${product.brand} ${product.name} (${item.quantity}x)</span>
-                <span>${LeDiplomate.formatPrice(subtotal)}€</span>
-            </div>
-        `);
-    });
-    
-    console.log('Total calculé:', total);
-    const formattedTotal = LeDiplomate.formatPrice(total);
-    
-    // CORRECTION IMPORTANTE: Utiliser le callback de la modale pour mettre à jour le contenu
-    // une fois que la modale est affichée et que les éléments sont dans le DOM
-    const thisSaved = this; // Sauvegarder le contexte this
-    
-    // Créer une fonction de rappel pour mettre à jour les éléments après l'affichage de la modale
-    function updateModalContent() {
-        // Maintenant les éléments devraient être dans le DOM
-        setTimeout(() => {
-            const summaryElement = document.getElementById('sale-items-summary');
-            if (summaryElement) {
-                summaryElement.innerHTML = summaryItems.join('');
-                console.log('Récapitulatif mis à jour');
-            } else {
-                console.error('Élément "sale-items-summary" toujours non trouvé après délai');
-            }
-            
-            const totalElement = document.getElementById('sale-total-amount');
-            if (totalElement) {
-                totalElement.textContent = formattedTotal;
-                console.log('Total mis à jour avec:', formattedTotal);
-            } else {
-                console.error('Élément "sale-total-amount" toujours non trouvé après délai');
-            }
-        }, 100); // Petit délai pour s'assurer que le DOM est mis à jour
-    }
-    
-    // Afficher la modale puis mettre à jour son contenu
-    if (typeof LeDiplomate.modals.show === 'function') {
+    showCompleteSaleModal: function() {
         console.log('Affichage de la modale de finalisation de vente');
-        
-        // MÉTHODE 1: Essayer avec la méthode habituelle
-        LeDiplomate.modals.show('tpl-modal-complete-sale');
-        updateModalContent();
-        
-        // MÉTHODE ALTERNATIVE: Si la méthode ci-dessus ne fonctionne pas, 
-        // il se peut que nous devions copier et modifier la logique de la modale
-        /*
-        // Récupérer le template de la modale
-        const template = document.getElementById('tpl-modal-complete-sale');
-        if (!template) {
-            console.error('Template de modale non trouvé');
-            return;
-        }
-        
-        // Cloner le contenu du template
-        const modalContent = document.importNode(template.content, true);
-        
-        // Mettre à jour le contenu de la modale directement
-        const summaryElement = modalContent.querySelector('#sale-items-summary');
-        if (summaryElement) {
-            summaryElement.innerHTML = summaryItems.join('');
-        }
-        
-        const totalElement = modalContent.querySelector('#sale-total-amount');
-        if (totalElement) {
-            totalElement.textContent = formattedTotal;
-        }
-        
-        // Injecter dans la modale et l'afficher
-        const modalBody = document.getElementById('modal-body');
-        modalBody.innerHTML = '';
-        modalBody.appendChild(modalContent);
-        
-        // Afficher la modale
-        document.getElementById('modal-container').classList.remove('hidden');
-        */
-    } else {
-        console.error('La fonction LeDiplomate.modals.show n\'est pas disponible');
-    }
-},
-    
-    /**
-     * Finalise la vente
-     */
-    completeSale: function() {
-        console.log('Tentative de finalisation de la vente');
         
         if (this.cart.length === 0) {
             LeDiplomate.notifications.show('Le panier est vide', 'warning');
             return;
         }
         
-        // Vérifier la disponibilité des articles en stock
+        // Calculer le total et préparer les items
+        let total = 0;
+        const summaryItems = [];
+        
+        this.cart.forEach(item => {
+            const product = LeDiplomate.dataManager.products.getById(item.productId);
+            if (!product) {
+                console.error('Produit non trouvé pour l\'ID:', item.productId);
+                return;
+            }
+            
+            const subtotal = item.price * item.quantity;
+            total += subtotal;
+            
+            summaryItems.push(`
+                <div class="sale-summary-item">
+                    <span>${product.brand} ${product.name} (${item.quantity}x)</span>
+                    <span>${LeDiplomate.formatPrice(subtotal)}€</span>
+                </div>
+            `);
+        });
+        
+        // Afficher la modale
+        LeDiplomate.modals.show('tpl-modal-complete-sale');
+        
+        // Mettre à jour le contenu après un court délai pour s'assurer que la modale est affichée
+        setTimeout(() => {
+            const summaryElement = document.getElementById('sale-items-summary');
+            if (summaryElement) {
+                summaryElement.innerHTML = summaryItems.join('');
+            } else {
+                console.error('Élément "sale-items-summary" non trouvé');
+            }
+            
+            const totalElement = document.getElementById('sale-total-amount');
+            if (totalElement) {
+                totalElement.textContent = LeDiplomate.formatPrice(total);
+            } else {
+                console.error('Élément "sale-total-amount" non trouvé');
+            }
+        }, 100);
+    },
+    
+    /**
+     * Finalise la vente
+     */
+    completeSale: function() {
+        console.log('Finalisation de la vente');
+        
+        if (this.cart.length === 0) {
+            LeDiplomate.notifications.show('Le panier est vide', 'warning');
+            return;
+        }
+        
+        // Vérifier la disponibilité des articles en stock avec le nouveau modèle unifié
         for (const item of this.cart) {
             const stockItem = LeDiplomate.dataManager.stock.getByProductId(item.productId);
             if (!stockItem || stockItem.quantity < item.quantity) {
@@ -704,14 +684,13 @@ showCompleteSaleModal: function() {
                 quantity: item.quantity,
                 price: item.price
             })),
-            total: parseFloat(total.toFixed(2)), // Éviter les erreurs de précision
+            total: parseFloat(total.toFixed(2)),
             paymentMethod: paymentMethod,
             notes: notes
         };
         
         // Enregistrer la vente
         try {
-            console.log('Enregistrement de la vente:', sale);
             LeDiplomate.dataManager.sales.add(sale);
             
             // Vider le panier
@@ -719,11 +698,7 @@ showCompleteSaleModal: function() {
             this.updateCartDisplay();
             
             // Fermer la modale
-            if (typeof LeDiplomate.modals.hide === 'function') {
-                LeDiplomate.modals.hide();
-            } else {
-                console.error('La fonction LeDiplomate.modals.hide n\'est pas disponible');
-            }
+            LeDiplomate.modals.hide();
             
             // Notification
             LeDiplomate.notifications.show('Vente enregistrée avec succès', 'success');

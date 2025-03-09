@@ -1160,4 +1160,197 @@ LeDiplomate.dataManager.stock.updateQuantity = function(productId, delta) {
         return stockItem;
     }
     return null;
+/**
+ * Fonctions de réinitialisation pour les modules Stock, Produits et Ventes
+ * À ajouter au fichier data.js
+ */
+
+// Ajouter ces méthodes à LeDiplomate.dataManager
+LeDiplomate.dataManager.resetStock = function() {
+    // Réinitialiser le stock
+    this.data.stock = [];
+    this.saveAllData();
+    console.log('Stock réinitialisé avec succès');
+    return true;
+};
+
+LeDiplomate.dataManager.resetProducts = function() {
+    // Vérifier d'abord si certains produits sont référencés en stock
+    const productsInStock = this.data.stock.length > 0;
+    
+    if (productsInStock) {
+        return {
+            success: false,
+            message: 'Impossible de réinitialiser le catalogue : des produits sont encore en stock. Veuillez d\'abord réinitialiser le stock.'
+        };
+    }
+    
+    // Réinitialiser le catalogue de produits
+    this.data.products = [];
+    this.saveAllData();
+    console.log('Catalogue de produits réinitialisé avec succès');
+    
+    return {
+        success: true,
+        message: 'Catalogue de produits réinitialisé avec succès'
+    };
+};
+
+LeDiplomate.dataManager.resetSales = function() {
+    // Réinitialiser l'historique des ventes
+    this.data.sales = [];
+    this.saveAllData();
+    console.log('Historique des ventes réinitialisé avec succès');
+    return true;
+};
+
+// Ajouter une méthode de réinitialisation complète pour les tests
+LeDiplomate.dataManager.resetAll = function() {
+        // Réinitialiser toutes les données sauf les fournisseurs
+        this.data.stock = [];
+        this.data.products = [];
+        this.data.sales = [];
+        this.data.labels = [];
+        this.saveAllData();
+        console.log('Toutes les données ont été réinitialisées avec succès');
+        return true;
+    };
+};
+/**
+ * Fonctions améliorées pour dataManager.js
+ * Ces fonctions doivent être intégrées dans le fichier data.js
+ */
+
+// Ajouter ou remplacer ces méthodes dans LeDiplomate.dataManager
+
+/**
+ * Réinitialise le stock (met toutes les quantités à zéro)
+ * @returns {boolean} Succès de l'opération
+ */
+LeDiplomate.dataManager.resetStock = function() {
+    try {
+        console.log('Réinitialisation du stock en cours...');
+        
+        // Approche 1: Mettre toutes les quantités à zéro (conserve les informations de prix et fournisseur)
+        this.data.stock.forEach(item => {
+            item.quantity = 0;
+        });
+        
+        // Approche 2: Supprimer complètement tous les éléments de stock
+        // this.data.stock = [];
+        
+        // Enregistrer les modifications
+        this.saveAllData();
+        
+        console.log('Stock réinitialisé avec succès');
+        return true;
+    } catch (error) {
+        console.error('Erreur lors de la réinitialisation du stock:', error);
+        return false;
+    }
+};
+
+/**
+ * Réinitialise le catalogue de produits (supprime les produits qui ne sont pas en stock)
+ * @returns {Object} Résultat de l'opération avec succès et message
+ */
+LeDiplomate.dataManager.resetProducts = function() {
+    try {
+        console.log('Vérification de la réinitialisation du catalogue...');
+        
+        // Récupérer les produits qui sont actuellement en stock (quantité > 0)
+        const productsInStock = [];
+        this.data.stock.forEach(item => {
+            if (item.quantity > 0) {
+                productsInStock.push(item.productId);
+            }
+        });
+        
+        if (productsInStock.length > 0) {
+            // Détecter si l'utilisateur veut réinitialiser tout le catalogue (même avec stock)
+            const forceReset = false; // Mettre à true pour une réinitialisation complète
+            
+            if (!forceReset) {
+                console.warn(`Impossible de réinitialiser complètement le catalogue: ${productsInStock.length} produits sont encore en stock`);
+                
+                // Conserver uniquement les produits en stock
+                this.data.products = this.data.products.filter(product => 
+                    productsInStock.includes(product.id)
+                );
+                
+                this.saveAllData();
+                
+                return {
+                    success: true,
+                    message: `Catalogue partiellement réinitialisé (${productsInStock.length} produits en stock ont été conservés)`
+                };
+            }
+        }
+        
+        // Réinitialiser complètement le catalogue
+        this.data.products = [];
+        this.saveAllData();
+        console.log('Catalogue de produits entièrement réinitialisé');
+        
+        return {
+            success: true,
+            message: 'Catalogue de produits réinitialisé avec succès'
+        };
+    } catch (error) {
+        console.error('Erreur lors de la réinitialisation du catalogue:', error);
+        return {
+            success: false,
+            message: 'Erreur lors de la réinitialisation du catalogue: ' + error.message
+        };
+    }
+};
+
+/**
+ * Réinitialise l'historique des ventes
+ * @returns {boolean} Succès de l'opération
+ */
+LeDiplomate.dataManager.resetSales = function() {
+    try {
+        console.log('Réinitialisation de l\'historique des ventes en cours...');
+        
+        // Réinitialiser l'historique des ventes
+        this.data.sales = [];
+        this.saveAllData();
+        
+        console.log('Historique des ventes réinitialisé avec succès');
+        return true;
+    } catch (error) {
+        console.error('Erreur lors de la réinitialisation de l\'historique des ventes:', error);
+        return false;
+    }
+};
+
+/**
+ * Méthode améliorée pour mettre à jour une quantité en stock
+ * @param {string} productId - ID du produit
+ * @param {number} delta - Variation de quantité (positif pour ajout, négatif pour retrait)
+ * @returns {Object|null} L'élément de stock mis à jour ou null en cas d'erreur
+ */
+LeDiplomate.dataManager.stock.updateQuantity = function(productId, delta) {
+    const stockItem = this.getByProductId(productId);
+    
+    if (stockItem) {
+        const newQuantity = stockItem.quantity + delta;
+        
+        if (newQuantity < 0) {
+            // Soit on rejette avec une erreur
+            throw new Error(`Quantité insuffisante pour le produit ${productId}`);
+            
+            // Soit on limite à zéro
+            // stockItem.quantity = 0;
+            // console.warn(`Quantité limitée à zéro pour le produit ${productId}`);
+        } else {
+            stockItem.quantity = newQuantity;
+        }
+        
+        LeDiplomate.dataManager.saveAllData();
+        return stockItem;
+    }
+    
+    return null;
 };

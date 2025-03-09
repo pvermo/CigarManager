@@ -1,6 +1,6 @@
 /**
- * Module Étiquettes - Le Diplomate
- * Intègre le générateur d'étiquettes existant
+ * Module Étiquettes - Le Diplomate (Adapté pour le modèle de produits unifié)
+ * Gère le générateur d'étiquettes de cigares
  */
 
 // Initialiser le module d'étiquettes
@@ -11,7 +11,7 @@ LeDiplomate.etiquettes = {
     init: function() {
         console.log('Initialisation du module Étiquettes');
         
-        // Injecter le contenu du générateur d'étiquettes existant
+        // Injecter le contenu du générateur d'étiquettes
         this.injectEtiquettesGenerator();
     },
     
@@ -401,19 +401,27 @@ LeDiplomate.etiquettes = {
             XLSX.writeFile(wb, 'modele_etiquettes_cigares.xlsx');
         }
         
-        // Fonction pour rechercher des produits du catalogue
+        // Fonction pour rechercher des produits du catalogue avec le modèle unifié
         function searchCatalogueProducts() {
             const query = document.getElementById('catalogue-search').value.trim();
             const resultsContainer = document.getElementById('catalogue-products');
             
+            let products = [];
             if (!query) {
-                // Afficher tous les produits
-                displayCatalogueProducts(LeDiplomate.dataManager.products.getAll());
+                // Afficher tous les produits qui ont du stock
+                products = LeDiplomate.dataManager.products.getAll().filter(product => {
+                    const stockItem = LeDiplomate.dataManager.stock.getByProductId(product.id);
+                    return stockItem && stockItem.quantity > 0;
+                });
             } else {
                 // Rechercher les produits
-                const products = LeDiplomate.dataManager.products.search(query);
-                displayCatalogueProducts(products);
+                products = LeDiplomate.dataManager.products.search(query).filter(product => {
+                    const stockItem = LeDiplomate.dataManager.stock.getByProductId(product.id);
+                    return stockItem && stockItem.quantity > 0;
+                });
             }
+            
+            displayCatalogueProducts(products);
         }
         
         // Fonction pour afficher les produits du catalogue
@@ -422,11 +430,12 @@ LeDiplomate.etiquettes = {
             container.innerHTML = '';
             
             if (products.length === 0) {
-                container.innerHTML = '<p>Aucun produit trouvé</p>';
+                container.innerHTML = '<p>Aucun produit trouvé ou en stock</p>';
                 return;
             }
             
             products.forEach(product => {
+                // Obtenir les infos de stock et de prix
                 const stockItem = LeDiplomate.dataManager.stock.getByProductId(product.id);
                 const price = stockItem ? stockItem.price : '';
                 
@@ -437,7 +446,7 @@ LeDiplomate.etiquettes = {
                         <strong>${product.brand} ${product.name}</strong>
                         <div>Origine: ${product.country || '--'}</div>
                         <div>Vitole: ${product.vitole || '--'}</div>
-                        ${stockItem ? `<div>Prix: ${LeDiplomate.formatPrice(stockItem.price)}€</div>` : ''}
+                        ${stockItem ? `<div>Prix: ${LeDiplomate.formatPrice(stockItem.price)}€ (Stock: ${stockItem.quantity})</div>` : ''}
                     </div>
                     <button class="btn primary btn-sm">Créer Étiquette</button>
                 `;
@@ -550,8 +559,23 @@ LeDiplomate.etiquettes = {
         });
         
         // Événements pour la recherche dans le catalogue
-        document.getElementById('catalogue-search').addEventListener('input', LeDiplomate.stock.debounce(searchCatalogueProducts, 300));
+        document.getElementById('catalogue-search').addEventListener('input', debounce(searchCatalogueProducts, 300));
         document.getElementById('catalogue-search-btn').addEventListener('click', searchCatalogueProducts);
+        
+        // Fonction utilitaire pour limiter le nombre d'appels à une fonction
+        function debounce(func, wait) {
+            let timeout;
+            return function() {
+                const context = this;
+                const args = arguments;
+                const later = function() {
+                    timeout = null;
+                    func.apply(context, args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
         
         // Exposer les fonctions nécessaires
         LeDiplomate.etiquettes.editLabel = function(index) {
